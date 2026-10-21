@@ -1,0 +1,893 @@
+
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Modern ELT & Star Schema DWH Simulator</title>
+
+  <script defer src="/__/firebase/13.0.0/firebase-app-compat.js"></script>
+  <script defer src="/__/firebase/13.0.0/firebase-firestore-compat.js"></script>
+  <script defer src="/__/firebase/init.js"></script>
+
+  <style>
+    :root {
+      --blue: #287dcc;
+      --navy: #173b60;
+      --cyan: #08b7cb;
+      --green: #2d9c68;
+      --orange: #e66b19;
+      --purple: #8154d8;
+      --text: #24415f;
+      --muted: #6d8299;
+      --line: #d1deeb;
+      --bg: #edf3f9;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 14px;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 22px auto;
+      padding: 0 16px 30px;
+    }
+
+    .hero, .panel {
+      background: white;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: 0 2px 5px #1b3b5910;
+    }
+
+    .hero {
+      padding: 25px 22px;
+      margin-bottom: 22px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 18px;
+    }
+
+    .hero h1 {
+      color: var(--cyan);
+      font-size: clamp(19px, 2.4vw, 25px);
+      margin: 0 0 8px;
+    }
+
+    .hero p { margin: 0; color: var(--muted); line-height: 1.5; }
+
+    .badge {
+      background: #eaf5ff;
+      color: #2670b8;
+      font-weight: bold;
+      border-radius: 5px;
+      padding: 9px 12px;
+      white-space: nowrap;
+    }
+
+    .top-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 15px;
+      margin-bottom: 22px;
+    }
+
+    .panel { padding: 21px; min-width: 0; margin-bottom: 20px; }
+
+    .panel h2 {
+      font-size: 17px;
+      margin: 0 0 16px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid #e1eaf3;
+      color: #2165a5;
+    }
+
+    label {
+      display: block;
+      font-weight: bold;
+      margin: 12px 0 6px;
+      font-size: 12px;
+    }
+
+    input, textarea, select {
+      width: 100%;
+      border: 1px solid #cbd8e6;
+      border-radius: 6px;
+      padding: 10px 11px;
+      color: #243d55;
+      background: #fff;
+      font: inherit;
+    }
+
+    textarea { resize: vertical; min-height: 70px; }
+    #jsonInput { min-height: 245px; font-family: Consolas, monospace; font-size: 12px; }
+
+    input:focus, textarea:focus {
+      outline: 2px solid #b6dcff;
+      border-color: var(--blue);
+    }
+
+    button {
+      border: 0;
+      border-radius: 6px;
+      padding: 11px 15px;
+      font-weight: bold;
+      color: white;
+      cursor: pointer;
+      transition: filter .15s;
+      font-size: 12px;
+    }
+
+    button:hover { filter: brightness(.93); }
+    button:disabled { opacity: .55; cursor: wait; }
+
+    .btn-blue { background: var(--blue); }
+    .btn-green { background: var(--green); }
+    .btn-orange { background: var(--orange); }
+    .btn-purple { background: var(--purple); }
+    .btn-gray { background: #64748b; }
+    .full { width: 100%; margin-top: 12px; }
+    .hint { color: var(--muted); font-size: 12px; line-height: 1.6; margin: 12px 0 0; }
+    .pipeline-head { display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom: 18px; }
+    .pipeline-head h2 { margin:0; border:0; padding:0; }
+
+    .pipeline {
+      display: grid;
+      grid-template-columns: 1fr 28px 1fr 28px 1fr;
+      gap: 8px;
+      padding: 15px;
+      background: #f7fafd;
+      border: 1px dashed #cbd9e8;
+      border-radius: 8px;
+    }
+
+    .task {
+      border: 2px solid #cbd9e8;
+      border-radius: 8px;
+      background: white;
+      padding: 19px 13px;
+      text-align: center;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .task h3 { font-size: 13px; margin: 0 0 9px; }
+    .task p { color: var(--muted); font-size: 12px; line-height: 1.6; margin: 0 0 14px; flex: 1; }
+    .task button { width: 100%; }
+    .task1 h3 { color: #236bb3; }
+    .task2 h3 { color: #218050; }
+    .task3 h3 { color: #d85c16; }
+    .arrow { align-self: center; text-align: center; font-size: 20px; font-weight: bold; color: #748ba4; }
+
+    .task-state { margin-top: 10px; font-size: 11px; color: var(--muted); overflow-wrap: anywhere; }
+    .console {
+      background: #141c2b;
+      color: #b5f5c8;
+      border-radius: 6px;
+      padding: 15px;
+      font: 12px/1.8 Consolas, monospace;
+      min-height: 110px;
+      max-height: 270px;
+      overflow: auto;
+      overflow-wrap: anywhere;
+    }
+
+    .console-line { border-bottom: 1px solid #273349; padding: 3px 0; }
+    .console-line.error { color: #ff9999; }
+    .console-line.info { color: #8ecbff; }
+    .console-line.warn { color: #ffd58a; }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .stat {
+      background: white;
+      padding: 17px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+
+    .stat span { display:block; color:var(--muted); font-size:12px; margin-bottom:10px; }
+    .stat strong { font-size:22px; color:var(--navy); overflow-wrap:anywhere; }
+
+    .collections {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    .collection {
+      border: 1px solid #d6e2ee;
+      background: #f7fafd;
+      border-radius: 7px;
+      padding: 13px;
+    }
+
+    .collection strong { display:block; font-size:12px; overflow-wrap:anywhere; margin-bottom:7px; }
+    .collection span { color: #2676c5; font-size:12px; }
+
+    .table-wrap { overflow: auto; max-width: 100%; }
+    table { border-collapse: collapse; width: 100%; font-size: 12px; }
+    th, td { padding: 11px 10px; border-bottom: 1px solid #e1eaf3; text-align: left; white-space: nowrap; }
+    th { background: #eef4fa; color: #315b80; }
+    tbody tr:hover { background: #f6faff; }
+    .table-note { color: var(--muted); font-size:12px; margin-bottom:12px; }
+    .empty { color:var(--muted); padding:15px 0; }
+    footer { text-align:center; color:var(--muted); font-size:12px; padding:10px; }
+
+    @media(max-width: 760px) {
+      .top-grid { grid-template-columns: 1fr; }
+      .hero { align-items:flex-start; flex-direction:column; }
+      .pipeline { grid-template-columns: 1fr; }
+      .arrow { transform: rotate(90deg); }
+      .stats { grid-template-columns: repeat(2, 1fr); }
+      .panel { padding:15px; }
+    }
+
+    @media(max-width: 380px) {
+      .stats { grid-template-columns:1fr; }
+    }
+  </style>
+</head>
+
+<body>
+<div class="container">
+
+  <header class="hero">
+    <div>
+      <h1>MODERN DATA INGESTION (ELT) & STAR SCHEMA DWH SIMULATOR</h1>
+      <p>Simulasi pipeline ELT dan Cloud Firestore · Praktikum Data Warehouse</p>
+    </div>
+    <div class="badge">Minggu 5 · Milestone 1</div>
+  </header>
+
+  <section class="top-grid">
+
+    <div class="panel">
+      <h2>1. Konfigurasi Project ID Firebase & Sumber Kolaborasi</h2>
+
+      <label for="projectId">Project ID Firebase Anda</label>
+      <input id="projectId" value="dwh-unipdu-4124027" autocomplete="off">
+
+      <label for="nim">NIM Anda</label>
+      <input id="nim" placeholder="Masukkan NIM Anda">
+
+      <label for="sources">Daftar Project ID Teman (pisahkan dengan koma)</label>
+      <textarea id="sources" placeholder="project-teman-1, project-teman-2"></textarea>
+
+      <button class="btn-blue full" id="saveConfig">Simpan Konfigurasi</button>
+      <p class="hint">Project aktif untuk operasi database mengikuti konfigurasi Firebase Hosting. Project teman hanya dicatat di antarmuka ini; akses lintas project membutuhkan izin dan konfigurasi tambahan.</p>
+    </div>
+
+    <div class="panel">
+      <h2>2. Data Seeder Hulu (Koleksi: transaksi_mentah)</h2>
+      <p class="hint">Masukkan array JSON transaksi mentah. Setiap transaksi sebaiknya memiliki id_pesanan_nk, tanggal_penjualan, id_produk_nk, id_pelanggan_nk, nama_pelanggan, jenis_kelamin, tanggal_lahir, alamat, nama_kota, nama_provinsi, id_kurir_nk, id_metode_bayar_nk, jumlah, harga_satuan, diskon_persen, dan ongkos_kirim.</p>
+
+      <label for="jsonInput">JSON Transaksi</label>
+      <textarea id="jsonInput" spellcheck="false">[
+  {
+    "id_pesanan_nk": "ORD-4124027-11",
+    "tanggal_penjualan": "2026-02-14",
+    "id_produk_nk": "PRD-001",
+    "id_pelanggan_nk": "CUST-4124027-01",
+    "nama_pelanggan": "budi santoso",
+    "jenis_kelamin": "L",
+    "tanggal_lahir": "2000-05-12",
+    "alamat": "Jl. Melati No. 10",
+    "nama_kota": "surabaya",
+    "nama_provinsi": "jatim",
+    "id_kurir_nk": "KUR-01",
+    "id_metode_bayar_nk": "PAY-01",
+    "jumlah": 2,
+    "harga_satuan": 8500000,
+    "diskon_persen": "5%",
+    "ongkos_kirim": 16000
+  }
+]</textarea>
+
+      <button class="btn-blue full" id="uploadBtn">🚀 Unggah Data Mentah ke Firestore</button>
+      <p class="hint">Dokumen disimpan berdasarkan ID pesanan. ID yang sama akan diperbarui, bukan dibuat sebagai dokumen baru.</p>
+    </div>
+
+  </section>
+
+  <section class="panel">
+    <div class="pipeline-head">
+      <h2>3. ELT Pipeline Orchestrator Simulator</h2>
+      <button class="btn-purple" id="fullDag">▶ Trigger Full DAG (Extract → Load → Transform)</button>
+    </div>
+
+    <div class="pipeline">
+      <div class="task task1">
+        <h3>Task 1: extract_api_to_landing</h3>
+        <p>Membaca koleksi transaksi_mentah dan menyalin data ke landing_zone_raw.</p>
+        <button class="btn-blue" id="task1">Jalankan Task 1</button>
+        <div class="task-state" id="state1">Menunggu proses</div>
+      </div>
+
+      <div class="arrow">&gt;&gt;</div>
+
+      <div class="task task2">
+        <h3>Task 2: transform_to_star_schema</h3>
+        <p>Membersihkan dan mengubah data menjadi enam koleksi dimensi dan fakta penjualan.</p>
+        <button class="btn-green" id="task2">Jalankan Task 2</button>
+        <div class="task-state" id="state2">Menunggu proses</div>
+      </div>
+
+      <div class="arrow">&gt;&gt;</div>
+
+      <div class="task task3">
+        <h3>Task 3: olap_star_schema_join</h3>
+        <p>Menggabungkan fakta dan dimensi untuk menyajikan laporan analitik penjualan.</p>
+        <button class="btn-orange" id="task3">Tampilkan Tabel DWH</button>
+        <div class="task-state" id="state3">Menunggu proses</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="pipeline-head">
+      <h2>Console Audit Log Pipeline (Real-time)</h2>
+      <button class="btn-gray" id="clearLog">Bersihkan Log</button>
+    </div>
+    <div class="console" id="console" aria-live="polite">
+      <div class="console-line info">[SYSTEM READY] Sesuaikan Project ID dan NIM, lalu unggah data atau jalankan Task 1.</div>
+    </div>
+  </section>
+
+  <section class="stats">
+    <div class="stat"><span>Fakta Penjualan</span><strong id="statFact">—</strong></div>
+    <div class="stat"><span>Total Penjualan Neto</span><strong id="statSales">—</strong></div>
+    <div class="stat"><span>Dimensi Pelanggan</span><strong id="statCustomers">—</strong></div>
+    <div class="stat"><span>Dimensi Produk</span><strong id="statProducts">—</strong></div>
+  </section>
+
+  <section class="panel">
+    <h2>4. Monitoring Koleksi Data Warehouse</h2>
+    <div class="collections" id="collectionCards"></div>
+    <button class="btn-blue" id="refresh">↻ Segarkan Statistik</button>
+  </section>
+
+  <section class="panel">
+    <h2>5. Hasil OLAP — Star Schema Join</h2>
+    <div class="table-note" id="tableStatus">Jalankan Task 3 untuk menampilkan hasil join.</div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>ID Pesanan</th>
+            <th>Tanggal</th>
+            <th>Pelanggan</th>
+            <th>Kota</th>
+            <th>Produk</th>
+            <th>Kurir</th>
+            <th>Metode Bayar</th>
+            <th>Jumlah</th>
+            <th>Bruto</th>
+            <th>Diskon</th>
+            <th>Neto</th>
+          </tr>
+        </thead>
+        <tbody id="joinBody">
+          <tr><td colspan="11" class="empty">Belum ada hasil. Jalankan Task 3.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <footer>ELT & Star Schema DWH Simulator · Cloud Firestore</footer>
+</div>
+
+<script>
+  const $ = id => document.getElementById(id);
+
+  const COLLECTIONS = [
+    "transaksi_mentah",
+    "landing_zone_raw",
+    "dim_waktu",
+    "dim_produk",
+    "dim_pelanggan",
+    "dim_kurir",
+    "dim_metode_bayar",
+    "fakta_penjualan"
+  ];
+
+  const PRODUCTS = {
+    "PRD-001": { sk: 1, nama: "Laptop ProBook 14", merek: "TechBrand", harga: 8500000, kategori: "Laptop", induk: "Komputer & Aksesoris", supplier: "PT Mitra Komputindo", kota: "Jakarta" },
+    "PRD-002": { sk: 2, nama: "Mouse Wireless M20", merek: "ClickGear", harga: 120000, kategori: "Aksesoris PC", induk: "Komputer & Aksesoris", supplier: "CV Jaya Abadi", kota: "Surabaya" },
+    "PRD-003": { sk: 3, nama: "Monitor LED 24 Inch", merek: "VisionPlus", harga: 1650000, kategori: "Monitor", induk: "Komputer & Aksesoris", supplier: "PT Mitra Komputindo", kota: "Jakarta" },
+    "PRD-004": { sk: 4, nama: "Mechanical Keyboard RGB", merek: "KeyTech", harga: 350000, kategori: "Keyboard", induk: "Komputer & Aksesoris", supplier: "CV Jaya Abadi", kota: "Surabaya" },
+    "PRD-005": { sk: 5, nama: "SSD NVMe 1TB Gen4", merek: "FlashCore", harga: 950000, kategori: "Storage", induk: "Komponen PC", supplier: "PT Nusantara Data", kota: "Bandung" }
+  };
+
+  const COURIERS = {
+    "KUR-01": { sk: 1, nama: "JNE", layanan: "Reguler" },
+    "KUR-02": { sk: 2, nama: "SiCepat", layanan: "BEST" },
+    "KUR-03": { sk: 3, nama: "J&T Express", layanan: "Ekonomi" },
+    "KUR-04": { sk: 4, nama: "Pos Indonesia", layanan: "Kilat Khusus" }
+  };
+
+  const PAYMENTS = {
+    "PAY-01": { sk: 1, nama: "QRIS", jenis: "E-Wallet" },
+    "PAY-02": { sk: 2, nama: "BCA Virtual Account", jenis: "Transfer Bank" },
+    "PAY-03": { sk: 3, nama: "GoPay", jenis: "E-Wallet" },
+    "PAY-04": { sk: 4, nama: "Mandiri Virtual Account", jenis: "Transfer Bank" }
+  };
+
+  let db = null;
+  let busy = false;
+
+  function log(message, type = "") {
+    const line = document.createElement("div");
+    line.className = "console-line " + type;
+    line.textContent = "[" + new Date().toLocaleTimeString("id-ID") + "] " + message;
+    $("console").appendChild(line);
+    $("console").scrollTop = $("console").scrollHeight;
+  }
+
+  function setState(id, message) { $(id).textContent = message; }
+
+  function setBusy(value) {
+    busy = value;
+    ["saveConfig", "uploadBtn", "task1", "task2", "task3", "fullDag", "refresh"].forEach(id => {
+      $(id).disabled = value;
+    });
+  }
+
+  function money(value) {
+    return new Intl.NumberFormat("id-ID", {
+      style: "currency", currency: "IDR", maximumFractionDigits: 0
+    }).format(Number(value) || 0);
+  }
+
+  function number(value) {
+    return new Intl.NumberFormat("id-ID").format(Number(value) || 0);
+  }
+
+  function firestore() {
+    if (!window.firebase || !firebase.firestore) {
+      throw new Error("Firebase SDK belum dimuat. Muat ulang website dan periksa konfigurasi Hosting.");
+    }
+    if (!db) db = firebase.firestore();
+    return db;
+  }
+
+  function cleanString(value) {
+    return String(value ?? "").trim();
+  }
+
+  function safeId(value) {
+    return encodeURIComponent(String(value)).replaceAll("%", "_");
+  }
+
+  function dateParts(dateText) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(dateText))) {
+      throw new Error("Format tanggal harus YYYY-MM-DD: " + dateText);
+    }
+    const dt = new Date(dateText + "T00:00:00Z");
+    if (Number.isNaN(dt.getTime()) || dt.toISOString().slice(0, 10) !== dateText) {
+      throw new Error("Tanggal tidak valid: " + dateText);
+    }
+    return dt;
+  }
+
+  function gender(value) {
+    const v = cleanString(value).toLowerCase();
+    if (["l", "laki-laki", "laki", "pria", "cowok", "male", "m"].includes(v)) return "Laki-laki";
+    if (["p", "perempuan", "wanita", "cewek", "female", "f"].includes(v)) return "Perempuan";
+    return "Tidak Diketahui";
+  }
+
+  function province(value) {
+    const v = cleanString(value).toLowerCase();
+    const mapping = {
+      "jatim": ["Jawa Timur", "Jawa"], "jawa timur": ["Jawa Timur", "Jawa"],
+      "jateng": ["Jawa Tengah", "Jawa"], "jawa tengah": ["Jawa Tengah", "Jawa"],
+      "jabar": ["Jawa Barat", "Jawa"], "jawa barat": ["Jawa Barat", "Jawa"],
+      "dki": ["DKI Jakarta", "Jawa"], "jakarta": ["DKI Jakarta", "Jawa"],
+      "diy": ["DI Yogyakarta", "Jawa"], "yogyakarta": ["DI Yogyakarta", "Jawa"],
+      "banten": ["Banten", "Jawa"], "sumut": ["Sumatera Utara", "Sumatera"],
+      "sumatera utara": ["Sumatera Utara", "Sumatera"],
+      "sumbar": ["Sumatera Barat", "Sumatera"],
+      "sumsel": ["Sumatera Selatan", "Sumatera"],
+      "bali": ["Bali", "Bali & Nusa Tenggara"],
+      "kaltim": ["Kalimantan Timur", "Kalimantan"],
+      "kalsel": ["Kalimantan Selatan", "Kalimantan"],
+      "sulsel": ["Sulawesi Selatan", "Sulawesi"],
+      "riau": ["Riau", "Sumatera"]
+    };
+    return mapping[v] || [cleanString(value).replace(/\b\w/g, c => c.toUpperCase()), "Indonesia Lainnya"];
+  }
+
+  function ageGroup(birthText) {
+    const birth = dateParts(birthText);
+    const now = new Date();
+    let age = now.getFullYear() - birth.getUTCFullYear();
+    const month = now.getMonth() - birth.getUTCMonth();
+    if (month < 0 || (month === 0 && now.getDate() < birth.getUTCDate())) age--;
+    if (age < 0) throw new Error("Tanggal lahir tidak boleh di masa depan.");
+    if (age <= 25) return "Remaja/Muda (<=25)";
+    if (age <= 35) return "Dewasa Muda (26-35)";
+    if (age <= 50) return "Dewasa (36-50)";
+    return "Lansia (>50)";
+  }
+
+  function discountValue(raw, gross) {
+    const text = String(raw ?? "0").trim();
+    let result;
+    if (text.includes("%")) {
+      const pct = Number(text.replace("%", "").trim());
+      if (!Number.isFinite(pct) || pct < 0 || pct > 100) throw new Error("Persentase diskon harus 0–100%.");
+      result = Math.floor(gross * pct / 100);
+    } else {
+      result = Number(text);
+      if (!Number.isFinite(result) || !Number.isInteger(result)) throw new Error("Diskon harus berupa angka rupiah atau persen.");
+    }
+    if (result < 0 || result > gross) throw new Error("Diskon di luar rentang transaksi.");
+    return result;
+  }
+
+  async function put(collection, id, data) {
+    await firestore().collection(collection).doc(String(id)).set(data);
+  }
+
+  async function readCollection(collection) {
+    const snapshot = await firestore().collection(collection).get();
+    return snapshot.docs.map(doc => ({ _id: doc.id, ...doc.data() }));
+  }
+
+  async function saveConfig() {
+    const project = cleanString($("projectId").value);
+    const nim = cleanString($("nim").value);
+    if (!project) throw new Error("Project ID tidak boleh kosong.");
+    if (project !== "dwh-unipdu-4124027") {
+      throw new Error("Project aktif website ini adalah dwh-unipdu-4124027. Untuk memakai project lain, Firebase Hosting dan konfigurasi SDK harus dipindahkan terlebih dahulu.");
+    }
+    log("Konfigurasi lokal disimpan untuk NIM " + (nim || "(belum diisi)") + ".");
+    log("Project sumber kolaborasi: " + (cleanString($("sources").value) || "(belum diisi)") + ".", "info");
+  }
+
+  async function uploadRaw() {
+    const raw = JSON.parse($("jsonInput").value);
+    if (!Array.isArray(raw) || raw.length === 0) {
+      throw new Error("JSON harus berupa array yang berisi minimal satu transaksi.");
+    }
+
+    for (const row of raw) {
+      if (!row || typeof row !== "object" || Array.isArray(row)) {
+        throw new Error("Setiap elemen JSON harus berupa objek transaksi.");
+      }
+      if (!cleanString(row.id_pesanan_nk)) throw new Error("Setiap transaksi harus memiliki id_pesanan_nk.");
+    }
+
+    let count = 0;
+    for (const row of raw) {
+      await put("transaksi_mentah", safeId(row.id_pesanan_nk), row);
+      count++;
+    }
+
+    log("UPLOAD BERHASIL: " + count + " transaksi disimpan ke transaksi_mentah.");
+    await refreshStats();
+  }
+
+  async function task1() {
+    setState("state1", "Sedang memproses...");
+    const docs = await readCollection("transaksi_mentah");
+    const now = new Date();
+    const partition = "orders/year=" + now.getFullYear() +
+      "/month=" + String(now.getMonth() + 1).padStart(2, "0") +
+      "/day=" + String(now.getDate()).padStart(2, "0");
+
+    let count = 0;
+    for (const row of docs) {
+      if (!row.id_pesanan_nk) {
+        log("Transaksi tanpa id_pesanan_nk dilewati.", "warn");
+        continue;
+      }
+      const source = cleanString($("projectId").value);
+      const id = safeId(source + "_" + row.id_pesanan_nk);
+      const data = { ...row };
+      delete data._id;
+      data.sumber_project = source;
+      data.partition_path = partition;
+      await put("landing_zone_raw", id, data);
+      count++;
+    }
+
+    setState("state1", "Selesai: " + count + " dokumen");
+    log("TASK 1 BERHASIL: " + count + " dokumen diproses ke landing_zone_raw.");
+    await refreshStats();
+  }
+
+  async function task2() {
+    setState("state2", "Sedang transformasi...");
+    const docs = await readCollection("landing_zone_raw");
+    const monthNames = ["", "Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+    const dayNames = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
+    let success = 0;
+    let failed = 0;
+
+    for (const source of docs) {
+      const row = { ...source };
+      delete row._id;
+
+      try {
+        const dt = dateParts(row.tanggal_penjualan);
+        const productCode = cleanString(row.id_produk_nk || "PRD-001");
+        const courierCode = cleanString(row.id_kurir_nk || "KUR-01");
+        const paymentCode = cleanString(row.id_metode_bayar_nk || "PAY-01");
+
+        const product = PRODUCTS[productCode];
+        const courier = COURIERS[courierCode];
+        const payment = PAYMENTS[paymentCode];
+
+        if (!product) throw new Error("Kode produk tidak dikenal: " + productCode);
+        if (!courier) throw new Error("Kode kurir tidak dikenal: " + courierCode);
+        if (!payment) throw new Error("Kode metode bayar tidak dikenal: " + paymentCode);
+
+        const dateKey = Number(row.tanggal_penjualan.replaceAll("-", ""));
+        const skCustomer = parseInt(
+          [...md5Fallback(cleanString(row.id_pelanggan_nk))].slice(0, 6).join(""), 16
+        );
+
+        // Deterministic 6-character hash substitute when Web Crypto MD5 is unavailable.
+        // This value is used consistently for the same customer ID in this browser.
+        const customerId = cleanString(row.id_pelanggan_nk);
+        if (!customerId) throw new Error("id_pelanggan_nk wajib diisi.");
+        const skCust = customerKey(customerId);
+
+        const prov = province(row.nama_provinsi || "");
+        const quantity = Math.abs(Number(row.jumlah));
+        const price = Number(row.harga_satuan);
+        const shipping = Number(row.ongkos_kirim || 0);
+
+        if (!Number.isFinite(quantity) || !Number.isInteger(quantity) || quantity === 0) throw new Error("Jumlah barang harus bilangan bulat positif.");
+        if (!Number.isFinite(price) || price < 0) throw new Error("Harga satuan tidak valid.");
+        if (!Number.isFinite(shipping) || shipping < 0) throw new Error("Ongkos kirim tidak valid.");
+
+        const gross = quantity * price;
+        const discount = discountValue(row.diskon_persen ?? "0", gross);
+        const net = gross - discount;
+
+        await put("dim_waktu", String(dateKey), {
+          sk_waktu: dateKey,
+          tanggal_penjualan: row.tanggal_penjualan,
+          hari: dt.getUTCDate(),
+          bulan: dt.getUTCMonth() + 1,
+          nama_bulan: monthNames[dt.getUTCMonth() + 1],
+          kuartal: "Q" + (Math.floor(dt.getUTCMonth() / 3) + 1),
+          tahun: dt.getUTCFullYear(),
+          nama_hari: dayNames[dt.getUTCDay()]
+        });
+
+        await put("dim_produk", String(product.sk), {
+          sk_produk: product.sk,
+          id_produk_nk: productCode,
+          nama_produk: product.nama,
+          merek: product.merek,
+          harga_dasar: product.harga,
+          nama_kategori: product.kategori,
+          nama_kategori_induk: product.induk,
+          nama_supplier: product.supplier,
+          kota_supplier: product.kota
+        });
+
+        await put("dim_pelanggan", String(skCust), {
+          sk_pelanggan: skCust,
+          id_pelanggan_nk: customerId,
+          nama_pelanggan: cleanString(row.nama_pelanggan).replace(/\b\w/g, c => c.toUpperCase()),
+          jenis_kelamin: gender(row.jenis_kelamin),
+          tanggal_lahir: row.tanggal_lahir,
+          kelompok_usia: ageGroup(row.tanggal_lahir),
+          alamat: cleanString(row.alamat),
+          nama_kota: cleanString(row.nama_kota).replace(/\b\w/g, c => c.toUpperCase()),
+          nama_provinsi: prov[0],
+          pulau: prov[1]
+        });
+
+        await put("dim_kurir", String(courier.sk), {
+          sk_kurir: courier.sk,
+          id_kurir_nk: courierCode,
+          nama_kurir: courier.nama,
+          jenis_layanan: courier.layanan
+        });
+
+        await put("dim_metode_bayar", String(payment.sk), {
+          sk_metode_bayar: payment.sk,
+          id_metode_bayar_nk: paymentCode,
+          nama_metode: payment.nama,
+          jenis_metode: payment.jenis
+        });
+
+        await put("fakta_penjualan", safeId(row.id_pesanan_nk), {
+          sk_waktu: dateKey,
+          sk_produk: product.sk,
+          sk_pelanggan: skCust,
+          sk_kurir: courier.sk,
+          sk_metode_bayar: payment.sk,
+          id_pesanan_nk: row.id_pesanan_nk,
+          jumlah: quantity,
+          harga_satuan: price,
+          diskon: discount,
+          total_harga_bruto: gross,
+          total_penjualan_neto: net,
+          ongkos_kirim: shipping
+        });
+
+        success++;
+        log("TRANSFORM OK: " + row.id_pesanan_nk + " | Bruto " + money(gross) + " | Neto " + money(net));
+      } catch (error) {
+        failed++;
+        log("TRANSFORM GAGAL: " + (row.id_pesanan_nk || "tanpa ID") + " — " + error.message, "error");
+      }
+    }
+
+    setState("state2", "Berhasil: " + success + ", gagal: " + failed);
+    log("TASK 2 selesai. Berhasil " + success + ", gagal " + failed + ".");
+    await refreshStats();
+  }
+
+  // Stable positive 6-hex-digit customer key derived from the ID.
+  // Used consistently to connect dim_pelanggan and fakta_penjualan.
+  function customerKey(text) {
+    let hash = 2166136261;
+    for (let i = 0; i < text.length; i++) {
+      hash ^= text.charCodeAt(i);
+      hash = Math.imul(hash, 16777619);
+    }
+    return (hash >>> 0) & 0xFFFFFF;
+  }
+
+  function md5Fallback(text) {
+    // Not used for joins; retained only as a deterministic placeholder helper.
+    let h = 0;
+    for (let i = 0; i < text.length; i++) h = (Math.imul(31, h) + text.charCodeAt(i)) | 0;
+    return Math.abs(h).toString(16).padStart(6, "0").slice(-6);
+  }
+
+  async function task3() {
+    setState("state3", "Sedang melakukan join...");
+    const [facts, dates, products, customers, couriers, payments] = await Promise.all([
+      readCollection("fakta_penjualan"),
+      readCollection("dim_waktu"),
+      readCollection("dim_produk"),
+      readCollection("dim_pelanggan"),
+      readCollection("dim_kurir"),
+      readCollection("dim_metode_bayar")
+    ]);
+
+    const index = (rows, key) => new Map(rows.map(row => [String(row[key]), row]));
+    const dateMap = index(dates, "sk_waktu");
+    const productMap = index(products, "sk_produk");
+    const customerMap = index(customers, "sk_pelanggan");
+    const courierMap = index(couriers, "sk_kurir");
+    const paymentMap = index(payments, "sk_metode_bayar");
+
+    const joined = facts.map(f => ({
+      fact: f,
+      date: dateMap.get(String(f.sk_waktu)),
+      product: productMap.get(String(f.sk_produk)),
+      customer: customerMap.get(String(f.sk_pelanggan)),
+      courier: courierMap.get(String(f.sk_kurir)),
+      payment: paymentMap.get(String(f.sk_metode_bayar))
+    }));
+
+    $("joinBody").replaceChildren();
+
+    if (!joined.length) {
+      $("joinBody").innerHTML = '<tr><td colspan="11" class="empty">Koleksi fakta_penjualan masih kosong. Jalankan Task 1 lalu Task 2.</td></tr>';
+    } else {
+      for (const item of joined) {
+        const { fact: f, date: d, product: p, customer: c, courier: k, payment: m } = item;
+        const values = [
+          f.id_pesanan_nk || f._id,
+          d?.tanggal_penjualan || "-",
+          c?.nama_pelanggan || "Dimensi tidak ditemukan",
+          c?.nama_kota || "-",
+          p?.nama_produk || "-",
+          k?.nama_kurir || "-",
+          m?.nama_metode || "-",
+          number(f.jumlah),
+          money(f.total_harga_bruto),
+          money(f.diskon),
+          money(f.total_penjualan_neto)
+        ];
+        const tr = document.createElement("tr");
+        for (const value of values) {
+          const td = document.createElement("td");
+          td.textContent = String(value);
+          tr.appendChild(td);
+        }
+        $("joinBody").appendChild(tr);
+      }
+    }
+
+    $("tableStatus").textContent = "Hasil join: " + joined.length + " transaksi. Baris yang kehilangan dimensi akan ditandai.";
+    setState("state3", "Selesai: " + joined.length + " baris");
+    log("TASK 3 BERHASIL: join " + joined.length + " fakta penjualan dengan tabel dimensi.");
+  }
+
+  async function refreshStats() {
+    const data = await Promise.all(COLLECTIONS.map(async name => ({
+      name, rows: await readCollection(name)
+    })));
+
+    const map = Object.fromEntries(data.map(item => [item.name, item.rows]));
+    const facts = map.fakta_penjualan || [];
+    const total = facts.reduce((sum, row) => sum + (Number(row.total_penjualan_neto) || 0), 0);
+
+    $("statFact").textContent = number(facts.length);
+    $("statSales").textContent = money(total);
+    $("statCustomers").textContent = number((map.dim_pelanggan || []).length);
+    $("statProducts").textContent = number((map.dim_produk || []).length);
+
+    $("collectionCards").replaceChildren();
+    for (const item of data) {
+      const card = document.createElement("div");
+      card.className = "collection";
+      const strong = document.createElement("strong");
+      strong.textContent = item.name;
+      const span = document.createElement("span");
+      span.textContent = number(item.rows.length) + " dokumen";
+      card.append(strong, span);
+      $("collectionCards").appendChild(card);
+    }
+    log("Statistik Firestore diperbarui.", "info");
+  }
+
+  async function runAction(buttonId, action) {
+    if (busy) return;
+    setBusy(true);
+    try {
+      await action();
+    } catch (error) {
+      log("ERROR: " + error.message, "error");
+      if (error.code === "permission-denied" || /permission|insufficient/i.test(error.message)) {
+        log("Periksa Firestore Security Rules. Jangan membuka akses tulis publik tanpa pembatasan.", "warn");
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  $("saveConfig").addEventListener("click", () => runAction("saveConfig", saveConfig));
+  $("uploadBtn").addEventListener("click", () => runAction("uploadBtn", uploadRaw));
+  $("task1").addEventListener("click", () => runAction("task1", task1));
+  $("task2").addEventListener("click", () => runAction("task2", task2));
+  $("task3").addEventListener("click", () => runAction("task3", task3));
+  $("refresh").addEventListener("click", () => runAction("refresh", refreshStats));
+
+  $("fullDag").addEventListener("click", () => runAction("fullDag", async () => {
+    log("FULL DAG dimulai.");
+    await task1();
+    await task2();
+    await task3();
+    log("FULL DAG selesai.");
+  }));
+
+  $("clearLog").addEventListener("click", () => {
+    $("console").replaceChildren();
+    log("Log dibersihkan.", "info");
+  });
+
+  window.addEventListener("load", () => {
+    setTimeout(() => runAction("refresh", refreshStats), 500);
+  });
+</script>
+</body>
+</html>
