@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+
+<html lang="id"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>dbt Simulator di atas Cloud Firestore - S1 SI Unipdu</title>
+
+<style>
+
+* {
+  box-sizing:border-box;
+  font-family:'Segoe UI',Tahoma,sans-serif
+}
+
+body {
+  margin:0;
+  padding:20px;
+  background:#f0f4f8;
+  color:#2d3748
+}
+
+.c {
+  max-width:1250px;
+  margin:0 auto 18px;
+  background:#fff;
+  border:1px solid #cbd5e0;
+  border-radius:8px;
+  padding:20px
+}
+
+h1 {
+  margin:0 0 4px;
+  color:#00bcd4;
+  font-size:24px
+}
+
+h2 {
+  margin:0 0 10px;
+  color:#2b6cb0;
+  font-size:17px;
+  border-bottom:2px solid #edf2f7;
+  padding-bottom:6px
+}
+
+.g {
+  display:grid;
+  grid-template-columns:1fr 1fr 2fr 1fr;
+  gap:12px
+}
+
+label {
+  display:block;
+  font-weight:bold;
+  font-size:12px;
+  margin-bottom:3px;
+  color:#1a365d
+}
+
+input[type=text],input[type=number],select {
+  width:100%;
+  padding:8px;
+  border:1px solid #cbd5e0;
+  border-radius:6px;
+  font-size:13px;
+  font-family:Consolas,monospace
+}
+
+button {
+  cursor:pointer;
+  border:0;
+  border-radius:6px;
+  padding:9px 14px;
+  font-weight:bold;
+  font-size:13px;
+  color:#fff;
+  margin:3px 4px 3px 0
+}
+
+.b1 {
+  background:#3182ce
+}
+
+.b2 {
+  background:#38a169
+}
+
+.b3 {
+  background:#dd6b20
+}
+
+.b4 {
+  background:#805ad5
+}
+
+.b5 {
+  background:#718096
+}
+
+#log {
+  background:#1a202c;
+  color:#68d391;
+  padding:12px;
+  border-radius:6px;
+  font:12px Consolas,monospace;
+  height:250px;
+  overflow:auto;
+  white-space:pre-wrap
+}
+
+table {
+  width:100%;
+  border-collapse:collapse;
+  font-size:12px;
+  margin-top:8px
+}
+
+th {
+  background:#2b6cb0;
+  color:#fff;
+  padding:6px;
+  text-align:left
+}
+
+td {
+  padding:5px 6px;
+  border:1px solid #cbd5e0
+}
+
+.ok {
+  color:#22543d;
+  font-weight:bold
+}
+
+.er {
+  color:#c53030;
+  font-weight:bold
+}
+
+.sk {
+  color:#975a16;
+  font-weight:bold
+}
+
+</style></head><body>
+
+<div class="c"><h1>dbt SIMULATOR DI ATAS CLOUD FIRESTORE (Firebase Full)</h1>
+
+<div style="font-size:13px;color:#4a5568">Staging &rarr; Intermediate &rarr; Marts &bull; ref() &bull; materializations &bull; test &bull; lineage &bull; Minggu 6 &bull; S1 Sistem Informasi Unipdu<br>Sumber data: koleksi <code>landing_zone_raw</code> hasil Milestone 1 (Minggu 5). Hasil model ditulis ke koleksi berawalan <code>dbt_</code>.</div></div>
+
+<div class="c"><h2>Konfigurasi &amp; Perintah</h2>
+
+<div class="g">
+
+<div><label>Project ID Firebase Anda</label><input type="text" id="pid" value="dwh-unipdu-4124027"></div>
+
+<div><label>var: tahun_referensi</label><input type="number" id="thn" value="2026"></div>
+
+<div><label>--select (contoh: +fct_penjualan &nbsp; stg_transaksi+ &nbsp; +mart_penjualan_per_metode_bayar)</label><input type="text" id="sel" placeholder="kosong = semua node"></div>
+
+<div><label>Opsi</label><label style="font-weight:normal"><input type="checkbox" id="full"> --full-refresh</label></div>
+
+</div>
+
+<div style="margin-top:8px">
+
+<button class="b5" onclick="exec('ls')">dbt ls</button>
+
+<button class="b1" onclick="exec('seed')">dbt seed</button>
+
+<button class="b2" onclick="exec('run')">dbt run</button>
+
+<button class="b3" onclick="exec('test')">dbt test</button>
+
+<button class="b4" onclick="exec('build')">dbt build</button>
+
+<button class="b5" onclick="exec('docs')">dbt docs generate</button>
+
+</div></div>
+
+<div class="c"><h2>Lineage DAG (dibangun otomatis dari pemindaian ref() / source())</h2>
+
+<div style="font-size:12px;margin-bottom:6px"><span style="background:#e2e8f0;padding:2px 8px">source/seed</span> <span style="background:#bee3f8;padding:2px 8px">staging (view)</span> <span style="background:#c6f6d5;padding:2px 8px">intermediate (ephemeral)</span> <span style="background:#feebc8;padding:2px 8px">marts (table/incremental)</span> &nbsp; garis tepi: <b style="color:#dd6b20">oranye</b>=berjalan, <b style="color:#38a169">hijau</b>=sukses, <b style="color:#e53e3e">merah</b>=error, <b style="color:#d69e2e">kuning</b>=dilewati, <b style="color:#805ad5">ungu</b>=terpilih</div>
+
+<div id="dag" style="overflow-x:auto"></div></div>
+
+<div class="c"><h2>Console Log</h2><div id="log">[READY] Isi Project ID, lalu jalankan: dbt seed &rarr; dbt run &rarr; dbt test.</div></div>
+
+<div class="c"><h2>Hasil Eksekusi Terakhir</h2><div id="res" style="overflow-x:auto"><i style="font-size:13px;color:#718096">Belum ada perintah dijalankan.</i></div></div>
+
+<div class="c"><h2>dbt show: Pratinjau 10 Baris Sebuah Node</h2>
+
+<div style="display:flex;gap:8px"><select id="shw"></select><button class="b1" style="white-space:nowrap" onclick="showNode()">Tampilkan</button></div>
+
+<div id="shwOut" style="overflow-x:auto"></div></div>
+
+<script>
+
+
+
+const SCHEMA = "dbt_"; 
+
+const SRC = { landing_zone_raw: { transaksi: "landing_zone_raw" } }; 
+
+
+
+const tbl = (k, d) => d.map(a => Object.fromEntries(k.map((x, i) => [x, a[i]])));
+
+const PROV = [[["jatim","jawa timur"],"Jawa Timur","Jawa"],[["jateng","jawa tengah"],"Jawa Tengah","Jawa"],[["jabar","jawa barat"],"Jawa Barat","Jawa"],
+
+ [["dki","jakarta"],"DKI Jakarta","Jawa"],[["diy","yogyakarta"],"DI Yogyakarta","Jawa"],[["banten"],"Banten","Jawa"],[["sumut"],"Sumatera Utara","Sumatera"],
+
+ [["sumbar"],"Sumatera Barat","Sumatera"],[["sumsel"],"Sumatera Selatan","Sumatera"],[["bali"],"Bali","Bali & Nusa Tenggara"],
+
+ [["kaltim"],"Kalimantan Timur","Kalimantan"],[["kalsel"],"Kalimantan Selatan","Kalimantan"],[["sulsel"],"Sulawesi Selatan","Sulawesi"]];
+
+const SEEDS = {
+
+ ref_produk: { uk: "id_produk_nk", data: tbl(["id_produk_nk","sk_produk","nama_produk","merek","harga_dasar","nama_kategori","nama_kategori_induk","nama_supplier","kota_supplier"], [
+
+ ["PRD-001",1,"Laptop ProBook 14","TechBrand",8500000,"Laptop","Komputer & Aksesoris","PT Mitra Komputindo","Jakarta"],
+
+ ["PRD-002",2,"Mouse Wireless M20","ClickGear",120000,"Aksesoris PC","Komputer & Aksesoris","CV Jaya Abadi","Surabaya"],
+
+ ["PRD-003",3,"Monitor LED 24 Inch","VisionPlus",1650000,"Monitor","Komputer & Aksesoris","PT Mitra Komputindo","Jakarta"],
+
+ ["PRD-004",4,"Mechanical Keyboard RGB","KeyTech",350000,"Keyboard","Komputer & Aksesoris","CV Jaya Abadi","Surabaya"],
+
+ ["PRD-005",5,"SSD NVMe 1TB Gen4","FlashCore",950000,"Storage","Komponen PC","PT Nusantara Data","Bandung"]]) },
+
+ ref_kurir: { uk: "id_kurir_nk", data: tbl(["id_kurir_nk","sk_kurir","nama_kurir","jenis_layanan"],
+
+ [["KUR-01",1,"JNE","Reguler"],["KUR-02",2,"SiCepat","BEST"],["KUR-03",3,"J&T Express","Ekonomi"],["KUR-04",4,"Pos Indonesia","Kilat Khusus"]]) },
+
+ ref_metode_bayar: { uk: "id_metode_bayar_nk", data: tbl(["id_metode_bayar_nk","sk_metode_bayar","nama_metode","jenis_metode"],
+
+ [["PAY-01",1,"QRIS","E-Wallet"],["PAY-02",2,"BCA Virtual Account","Transfer Bank"],["PAY-03",3,"GoPay","E-Wallet"],["PAY-04",4,"Mandiri Virtual Account","Transfer Bank"]]) },
+
+ ref_provinsi_pulau: { uk: "alias", data: PROV.flatMap(([al, n, p]) => al.map(a => ({ alias: a, nama_provinsi: n, pulau: p }))) }
+
+};
+
+
+
+const M = {
+
+ HARI: ["Minggu","Senin","Selasa","Rabu","Kamis","Jumat","Sabtu"],
+
+ BULAN: ["","Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"],
+
+ title_case: s => String(s ?? "").trim().toLowerCase().replace(/\b\w/g, c => c.toUpperCase()),
+  normalisasi_alias_provinsi: s => String(s ?? "").trim().toLowerCase().replace(/\./g, ""),
+
+ standarkan_gender: v => { v = String(v).trim().toLowerCase();
+
+ return ["l","laki-laki","laki","pria","cowok","m","male"].includes(v) ? "Laki-laki" : ["p","perempuan","wanita","cewek","f","female"].includes(v) ? "Perempuan" : "Tidak Diketahui"; },
+
+ to_int: (v, d) => parseInt(v, 10) || d,
+
+ parse_tanggal: s => { const [y, m, d] = String(s).slice(0, 10).split("-").map(Number);
+
+ return { y, m, d, sk: y * 10000 + m * 100 + d, dow: new Date(Date.UTC(y, m - 1, d)).getUTCDay() }; },   // UTC: bebas jebakan zona waktu
+
+ kelompok_usia: (tgl, thn) => { const a = thn - (parseInt(String(tgl).substring(0, 4), 10) || 2000);
+
+ return a <= 25 ? "Remaja/Muda (<=25)" : a <= 35 ? "Dewasa Muda (26-35)" : a <= 50 ? "Dewasa (36-50)" : "Lansia (>50)"; },
+
+ hash_sk: nk => { let h = 0; for (let i = 0; i < nk.length; i++) h = ((h << 5) - h) + nk.charCodeAt(i); return Math.abs(h % 900000) + 100000; },
+
+ slug: s => String(s).toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "")
+
+};
+
+const MODELS = {
+
+ stg_transaksi: { layer: "staging", mat: "view", desc: "Casting & sanitasi transaksi mentah (1:1 dengan landing_zone_raw)",
+
+ fn: async ({ source, M }) => (await source("landing_zone_raw", "transaksi")).map(r => ({
+
+ id_pesanan_nk: r.id_pesanan_nk, tanggal_penjualan: String(r.tanggal_penjualan).trim(),
+
+ id_produk_nk: r.id_produk_nk, id_pelanggan_nk: r.id_pelanggan_nk,
+
+ nama_pelanggan: M.title_case(r.nama_pelanggan), jenis_kelamin: M.standarkan_gender(r.jenis_kelamin),
+
+ tanggal_lahir: r.tanggal_lahir, alamat: r.alamat, nama_kota: M.title_case(r.nama_kota),
+
+ provinsi_mentah: String(r.nama_provinsi ?? "").trim().toLowerCase(),
+
+ id_kurir_nk: r.id_kurir_nk, id_metode_bayar_nk: r.id_metode_bayar_nk,
+
+ jumlah: M.to_int(r.jumlah, 1), harga_satuan: M.to_int(r.harga_satuan, null),
+
+ diskon_persen: parseFloat(String(r.diskon_persen ?? "0").replace("%", "")) || 0,
+
+ ongkos_kirim: M.to_int(r.ongkos_kirim, 0) })) },
+
+ stg_produk: { layer: "staging", mat: "view", desc: "Master produk dari seed",
+
+ fn: async ({ ref }) => (await ref("ref_produk")).map(r => ({ ...r, harga_dasar: Number(r.harga_dasar) })) },
+
+ stg_kurir: { layer: "staging", mat: "view", desc: "Master kurir dari seed",
+
+ fn: async ({ ref }) => (await ref("ref_kurir")).map(r => ({ ...r, nama_kurir: r.nama_kurir.trim() })) },
+
+ stg_metode_bayar: { layer: "staging", mat: "view", desc: "Master metode bayar dari seed",
+
+ fn: async ({ ref }) => (await ref("ref_metode_bayar")).map(r => ({ ...r, nama_metode: r.nama_metode.trim() })) },
+
+ stg_provinsi: { layer: "staging", mat: "view", desc: "Kamus singkatan provinsi -> nama resmi & pulau",
+
+ fn: async ({ ref, M }) => (await ref("ref_provinsi_pulau")).map(r => ({ ...r, alias: M.normalisasi_alias_provinsi(r.alias) })) },
+
+
+
+ int_transaksi_enriched: { layer: "intermediate", mat: "ephemeral", desc: "JOIN transaksi dengan master + hitung bruto, diskon, neto",
+
+ fn: async ({ ref, M, vars }) => {
+
+ const [trx, prd, kur, byr, prv] = await Promise.all([ref("stg_transaksi"), ref("stg_produk"), ref("stg_kurir"), ref("stg_metode_bayar"), ref("stg_provinsi")]);
+
+ const idx = (a, k) => Object.fromEntries(a.map(x => [x[k], x]));
+
+ const P = idx(prd, "id_produk_nk"), K = idx(kur, "id_kurir_nk"), B = idx(byr, "id_metode_bayar_nk"), V = idx(prv, "alias");
+
+     return trx.map(t => {
+
+        const p = P[t.id_produk_nk], k = K[t.id_kurir_nk], b = B[t.id_metode_bayar_nk], v = V[t.provinsi_mentah];
+
+        const jumlah = Math.abs(t.jumlah), harga = t.harga_satuan ?? p?.harga_dasar ?? 0;
+
+        const bruto = jumlah * harga, diskon = Math.round(bruto * (t.diskon_persen / 100));
+
+        return { ...t, jumlah, harga_satuan: harga, total_harga_bruto: bruto, diskon, total_penjualan_neto: bruto - diskon,
+
+          sk_waktu: M.parse_tanggal(t.tanggal_penjualan).sk, sk_pelanggan: M.hash_sk(t.id_pelanggan_nk),
+
+          sk_produk: p?.sk_produk ?? null, sk_kurir: k?.sk_kurir ?? null, sk_metode_bayar: b?.sk_metode_bayar ?? null,
+
+          nama_provinsi: v?.nama_provinsi ?? M.title_case(t.provinsi_mentah), pulau: v?.pulau ?? "Indonesia",
+
+          kelompok_usia: M.kelompok_usia(t.tanggal_lahir, vars.tahun_referensi) }; }); } },
+
+
+  dim_waktu: { layer: "marts", mat: "table", uk: "sk_waktu", desc: "Dimensi kalender dari tanggal transaksi",
+
+    fn: async ({ ref, M }) => { const m = new Map();
+
+      for (const r of await ref("int_transaksi_enriched")) { const t = M.parse_tanggal(r.tanggal_penjualan);
+
+        m.set(t.sk, { sk_waktu: t.sk, tanggal_penjualan: r.tanggal_penjualan, hari: t.d, bulan: t.m, nama_bulan: M.BULAN[t.m],
+
+          kuartal: "Q" + (Math.floor((t.m - 1) / 3) + 1), tahun: t.y, nama_hari: M.HARI[t.dow] }); }
+
+      return [...m.values()]; } },
+
+  dim_produk: { layer: "marts", mat: "table", uk: "sk_produk", desc: "Dimensi produk (seluruh master)",
+
+    fn: async ({ ref }) => await ref("stg_produk") },
+
+  dim_pelanggan: { layer: "marts", mat: "table", uk: "sk_pelanggan", desc: "Dimensi pelanggan bersih (gender, provinsi, pulau, usia)",
+
+    fn: async ({ ref }) => { const m = new Map();
+
+      for (const r of await ref("int_transaksi_enriched")) m.set(r.sk_pelanggan, { sk_pelanggan: r.sk_pelanggan, id_pelanggan_nk: r.id_pelanggan_nk,
+
+        nama_pelanggan: r.nama_pelanggan, jenis_kelamin: r.jenis_kelamin, tanggal_lahir: r.tanggal_lahir, kelompok_usia: r.kelompok_usia,
+
+        alamat: r.alamat, nama_kota: r.nama_kota, nama_provinsi: r.nama_provinsi, pulau: r.pulau });
+
+      return [...m.values()]; } },
+
+  dim_kurir: { layer: "marts", mat: "table", uk: "sk_kurir", desc: "Dimensi kurir", fn: async ({ ref }) => await ref("stg_kurir") },
+
+  dim_metode_bayar: { layer: "marts", mat: "table", uk: "sk_metode_bayar", desc: "Dimensi metode bayar", fn: async ({ ref }) => await ref("stg_metode_bayar") },
+
+  dim_provinsi: { layer: "marts", mat: "table", uk: "alias", desc: "Dimensi provinsi beserta nama resmi dan kelompok pulau",
+    fn: async ({ ref }) => {
+      const provinsi = await ref("stg_provinsi");
+      return provinsi.map(r => ({
+        alias: r.alias,
+        nama_provinsi: r.nama_provinsi,
+        pulau: r.pulau
+      }));
+    } },
+
+  fct_penjualan: { layer: "marts", mat: "incremental", uk: "id_pesanan_nk", desc: "Fakta penjualan; incremental berdasar tanggal_penjualan (unique_key id_pesanan_nk)",
+
+    fn: async ({ ref, is_incremental, this_rows }) => {
+
+      let rows = await ref("int_transaksi_enriched");
+
+      if (is_incremental()) {                                   // {% if is_incremental() %}
+
+        const batas = (await this_rows()).reduce((mx, r) => r.tanggal_penjualan > mx ? r.tanggal_penjualan : mx, "");   // MAX() dari {{ this }}
+
+        rows = rows.filter(r => r.tanggal_penjualan >= batas);  // >= : lookback 1 hari, aman karena di-upsert via unique_key
+
+      }
+
+      return rows.map(r => ({ id_pesanan_nk: r.id_pesanan_nk, tanggal_penjualan: r.tanggal_penjualan, sk_waktu: r.sk_waktu, sk_produk: r.sk_produk,
+
+        sk_pelanggan: r.sk_pelanggan, sk_kurir: r.sk_kurir, sk_metode_bayar: r.sk_metode_bayar, jumlah: r.jumlah, harga_satuan: r.harga_satuan,
+
+        diskon: r.diskon, total_harga_bruto: r.total_harga_bruto, total_penjualan_neto: r.total_penjualan_neto, ongkos_kirim: r.ongkos_kirim })); } },
+
+  mart_penjualan_per_metode_bayar: { layer: "marts", mat: "table", uk: "tahun_bulan", desc: "Pivot neto per bulan x metode bayar via loop",
+
+    fn: async ({ ref, M }) => {
+
+      const [f, w, b] = await Promise.all([ref("fct_penjualan"), ref("dim_waktu"), ref("dim_metode_bayar")]);
+
+      const W = Object.fromEntries(w.map(x => [x.sk_waktu, x])), B = Object.fromEntries(b.map(x => [x.sk_metode_bayar, x.nama_metode]));
+
+      const metode_bayar = b.map(x => x.nama_metode), grup = {};                 // {% set metode_bayar = [...] %}
+
+      for (const r of f) { const t = W[r.sk_waktu]; if (!t) continue; (grup[`${t.tahun}-${String(t.bulan).padStart(2, "0")}`] ??= []).push(r); }
+
+      return Object.entries(grup).sort().map(([tb, rs]) => { const row = { tahun_bulan: tb, jumlah_pesanan: rs.length };
+
+        for (const metode of metode_bayar)                                       // {% for metode in metode_bayar %}
+
+          row["total_" + M.slug(metode)] = rs.filter(x => B[x.sk_metode_bayar] === metode).reduce((a, x) => a + x.total_penjualan_neto, 0);
+
+        return row; }); } }
+
+};
+
+
+const T = (model, col, type, x = {}) => ({ id: `${type}_${model}_${col}`, model, col, type, deps: [model, x.to].filter(Boolean), ...x });
+
+const TESTS = [
+
+  T("stg_transaksi","id_pesanan_nk","unique"), T("stg_transaksi","id_pesanan_nk","not_null"),
+
+  T("dim_waktu","sk_waktu","unique"), T("dim_produk","sk_produk","unique"), T("dim_pelanggan","sk_pelanggan","unique"), T("dim_pelanggan","sk_pelanggan","not_null"),
+
+  T("dim_pelanggan","jenis_kelamin","accepted_values",{vals:["Laki-laki","Perempuan"]}), T("dim_waktu","kuartal","accepted_values",{vals:["Q1","Q2","Q3","Q4"]}),
+  T("dim_provinsi","alias","unique"), T("dim_provinsi","nama_provinsi","not_null"),
+
+  T("fct_penjualan","id_pesanan_nk","unique"), T("fct_penjualan","id_pesanan_nk","not_null"),
+
+  ...[["sk_waktu","dim_waktu"],["sk_produk","dim_produk"],["sk_pelanggan","dim_pelanggan"],["sk_kurir","dim_kurir"],["sk_metode_bayar","dim_metode_bayar"]]
+
+    .map(([c, to]) => T("fct_penjualan", c, "relationships", { to, field: c }))
+
+];
+
+const SINGULAR = {   // test singular = query yang mengembalikan baris BERMASALAH; lulus jika kosong
+
+  assert_jumlah_positif: async ({ ref }) => (await ref("fct_penjualan")).filter(r => !(r.jumlah > 0)),
+
+  assert_neto_konsisten: async ({ ref }) => (await ref("fct_penjualan")).filter(r => r.total_penjualan_neto !== r.total_harga_bruto - r.diskon),
+  assert_provinsi_terpetakan: async ({ ref }) => (await ref("int_transaksi_enriched")).filter(r => !r.nama_provinsi || !r.pulau || r.pulau === "Indonesia"),
+
+  assert_parity_firestore: async ({ ref, legacy }) => { const L = Object.fromEntries((await legacy("fakta_penjualan")).map(r => [r.id_pesanan_nk, r]));
+
+    return (await ref("fct_penjualan")).filter(r => L[r.id_pesanan_nk]?.total_penjualan_neto !== r.total_penjualan_neto); }   // bandingkan dgn hasil Minggu 5
+
+};
+
+
+const REF_RE = /\b(ref|source)\s*\(\s*['"]([\w.-]+)['"](?:\s*,\s*['"]([\w.-]+)['"])?\s*\)/g;
+
+const scan = fn => [...new Set([...fn.toString().matchAll(REF_RE)].map(x => x[1] === "ref" ? x[2] : `${x[2]}.${x[3]}`))];
+
+const NODES = {};
+
+for (const s in SRC) for (const t in SRC[s]) NODES[`${s}.${t}`] = { name: `${s}.${t}`, type: "source", layer: "source", coll: SRC[s][t], deps: [], desc: "Sumber mentah (Minggu 5)" };
+
+for (const k in SEEDS) NODES[k] = { name: k, type: "seed", layer: "seed", mat: "seed", deps: [], desc: "Seed: data referensi" };
+
+for (const [k, m] of Object.entries(MODELS)) NODES[k] = { name: k, type: "model", ...m, deps: scan(m.fn) };
+
+for (const [k, fn] of Object.entries(SINGULAR)) { const deps = scan(fn); TESTS.push({ id: k, model: deps[0], type: "singular", fn, deps }); }
+
+const depth = {}; const D = n => depth[n] ??= NODES[n].deps.length ? 1 + Math.max(...NODES[n].deps.map(D)) : 0;
+
+Object.keys(NODES).forEach(D);
+
+function select(expr) {
+
+  const all = Object.keys(NODES); if (!expr.trim()) return new Set(all);
+
+  const up = (n, s) => NODES[n].deps.forEach(d => { if (!s.has(d)) { s.add(d); up(d, s); } });
+
+  const down = (n, s) => all.forEach(k => { if (NODES[k].deps.includes(n) && !s.has(k)) { s.add(k); down(k, s); } });
+
+  const out = new Set();
+
+  for (let t of expr.trim().split(/\s+/)) { const pre = t.startsWith("+"), post = t.endsWith("+"); t = t.replace(/^\+|\+$/g, "");
+
+    if (!NODES[t]) throw new Error(`Node '${t}' tidak ditemukan`);
+
+    const s = new Set([t]); if (pre) up(t, s); if (post) down(t, s); s.forEach(x => out.add(x)); }
+
+  return out;
+
+}
+
+
+const $ = id => document.getElementById(id), pid = () => $("pid").value.trim();
+
+const BASE = p => `https://firestore.googleapis.com/v1/projects/${p}/databases/(default)/documents`;
+
+const docId = v => String(v).replace(/[\/\s]+/g, "_");
+
+const rn = (p, c, id) => `projects/${p}/databases/(default)/documents/${c}/${id}`;
+
+const toF = o => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, v == null || Number.isNaN(v) ? { nullValue: null } : typeof v === "boolean" ? { booleanValue: v }
+
+  : Number.isInteger(v) ? { integerValue: String(v) } : typeof v === "number" ? { doubleValue: v } : { stringValue: String(v) }]));
+
+const fromF = d => Object.fromEntries(Object.entries(d.fields || {}).map(([k, v]) => [k, "integerValue" in v ? parseInt(v.integerValue, 10) : "doubleValue" in v ? v.doubleValue
+
+  : "booleanValue" in v ? v.booleanValue : "nullValue" in v ? null : v.stringValue]));
+
+const upd = (p, c, id, o) => ({ update: { name: rn(p, c, docId(id)), fields: toF(o) } });
+
+async function listAll(coll) { const rows = [], ids = []; let tok = "";
+
+  do { const res = await fetch(`${BASE(pid())}/${coll}?pageSize=300${tok ? "&pageToken=" + encodeURIComponent(tok) : ""}`);
+
+    if (!res.ok) throw new Error(`HTTP ${res.status} saat membaca ${coll}`);
+
+    const j = await res.json(); (j.documents || []).forEach(d => { rows.push(fromF(d)); ids.push(d.name.split("/").pop()); }); tok = j.nextPageToken || ""; } while (tok);
+
+  return { rows, ids }; }
+
+async function commit(writes) { for (let i = 0; i < writes.length; i += 400) {
+
+  const res = await fetch(`${BASE(pid())}:commit`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ writes: writes.slice(i, i + 400) }) });
+
+  if (!res.ok) throw new Error(`HTTP ${res.status} saat commit: ${(await res.text()).slice(0, 160)}`); } }
+
+
+let RUN, ST = {}; const RES = [];
+
+const fresh = () => RUN = { cache: new Map(), full: $("full").checked, vars: { tahun_referensi: parseInt($("thn").value, 10) || 2026 } };
+
+const ctx = (incr = false, self = []) => ({ ref: rel, source: (s, t) => rel(`${s}.${t}`), M, vars: RUN.vars, is_incremental: () => incr,
+
+  this_rows: async () => self, legacy: async c => (await listAll(c)).rows });
+
+function rel(name) {                                   // resolusi ref(): view/ephemeral dihitung, table/incremental/seed dibaca dari Firestore
+
+  if (RUN.cache.has(name)) return RUN.cache.get(name);
+
+  const n = NODES[name]; if (!n) throw new Error(`ref('${name}') tidak dikenal`);
+
+  const p = (async () => {
+
+    if (n.type === "source") return (await listAll(n.coll)).rows;
+
+    if (n.type === "seed" || n.mat === "table" || n.mat === "incremental") { const r = await listAll(SCHEMA + name);
+
+      if (!r.rows.length) throw new Error(`Relasi '${SCHEMA + name}' kosong/belum ada. Jalankan: ${n.type === "seed" ? "dbt seed" : "dbt run --select +" + name}`); return r.rows; }
+
+    return n.fn(ctx()); })();
+
+  RUN.cache.set(name, p); return p;
+
+}
+
+async function seed(name) { const s = SEEDS[name], P = pid(), c = SCHEMA + name;
+
+  await commit(s.data.map(r => upd(P, c, r[s.uk], r))); return { rows: s.data.length, note: "SEED: data referensi dimuat ke " + c }; }
+
+async function build(name) { const n = NODES[name], P = pid(), c = SCHEMA + name;
+
+  if (n.mat === "ephemeral") return { rows: null, note: "ephemeral: tidak ada koleksi; kode di-inline (CTE) ke model hilir" };
+
+  if (n.mat === "view") { const r = await rel(name);
+
+    await commit([upd(P, "_dbt_views", name, { nama_view: name, materialized: "view", definisi: n.fn.toString(), dibuat: new Date().toISOString() })]);
+
+    return { rows: r.length, note: "VIEW: hanya definisi disimpan di _dbt_views (0 baris data fisik)" }; }
+
+  const ex = n.mat === "incremental" ? await listAll(c) : { rows: [], ids: [] };
+
+  const incr = n.mat === "incremental" && !RUN.full && ex.rows.length > 0;
+
+  const rows = await n.fn(ctx(incr, ex.rows)), w = rows.map(r => upd(P, c, r[n.uk], r)); let fin = rows, note;
+
+  if (incr) { const m = new Map(ex.rows.map(r => [r[n.uk], r])); rows.forEach(r => m.set(r[n.uk], r)); fin = [...m.values()];
+
+    note = `INCREMENTAL: ${rows.length} baris diproses (upsert), tabel kini ${fin.length} baris`; }
+
+  else { const keep = new Set(rows.map(r => docId(r[n.uk]))), old = n.mat === "incremental" ? ex.ids : (await listAll(c)).ids, stale = old.filter(i => !keep.has(i));
+
+    stale.forEach(i => w.push({ delete: rn(P, c, i) }));
+
+    note = `${n.mat.toUpperCase()}: rebuild penuh ${rows.length} baris` + (stale.length ? `, ${stale.length} baris basi dihapus` : ""); }
+
+  await commit(w); RUN.cache.set(name, Promise.resolve(fin)); return { rows: rows.length, note }; }
+
+async function runTest(t) {
+
+  if (t.type === "singular") return await t.fn(ctx());
+
+  const r = await rel(t.model);
+
+  if (t.type === "unique") { const s = new Set(), d = new Set(); r.forEach(x => s.has(x[t.col]) ? d.add(x[t.col]) : s.add(x[t.col])); return [...d]; }
+
+  if (t.type === "not_null") return r.filter(x => x[t.col] == null || x[t.col] === "");
+
+  if (t.type === "accepted_values") return r.filter(x => !t.vals.includes(x[t.col]));
+
+  if (t.type === "relationships") { const s = new Set((await rel(t.to)).map(x => x[t.field])); return r.filter(x => !s.has(x[t.col])); }
+
+}
+
+
+async function exec(cmd) {
+
+  RES.length = 0; ST = {};
+
+  const t0 = performance.now(), bad = new Set(), tally = { OK: 0, ERROR: 0, SKIP: 0, PASS: 0, FAIL: 0 };
+
+  const res = (n, type, mat, status, rows, sec, note) => { RES.push({ n, type, mat, status, rows, sec, note }); tally[status] = (tally[status] || 0) + 1; };
+
+  try {
+
+    fresh(); const sel = select($("sel").value);
+
+    const nodes = [...sel].filter(n => NODES[n].type !== "source").sort((a, b) => depth[a] - depth[b]);
+
+    log(`$ dbt ${cmd}${$("sel").value ? " --select " + $("sel").value : ""}${RUN.full ? " --full-refresh" : ""}`);
+
+    if (cmd === "ls") { nodes.forEach(n => { ST[n] = "sel"; log("  " + n); }); log(`${nodes.length} node terpilih.`); drawDag(); return; }
+
+    if (cmd === "docs") return await docs(nodes);
+
+    const done = new Set(cmd === "test" ? Object.keys(NODES) : []);
+
+    const queue = cmd === "test" ? [] : nodes.filter(n => cmd === "build" || NODES[n].type === (cmd === "seed" ? "seed" : "model"));
+
+    let pending = cmd === "run" || cmd === "seed" ? [] : TESTS.filter(t => sel.has(t.model));
+
+    const doTest = async t => { const t1 = performance.now();
+
+      if (t.deps.some(d => bad.has(d))) { res(t.id, "test", t.type, "SKIP", null, 0, "dependensi gagal"); return; }
+
+      try { const b = await runTest(t), s = ((performance.now() - t1) / 1000).toFixed(1);
+
+        if (b.length) { bad.add(t.model); res(t.id, "test", t.type, "FAIL", b.length, s, "contoh: " + JSON.stringify(b[0]).slice(0, 150)); log(`  FAIL ${t.id} (${b.length} baris bermasalah)`); }
+
+        else { res(t.id, "test", t.type, "PASS", 0, s, ""); log(`  PASS ${t.id}`); } }
+
+      catch (e) { bad.add(t.model); res(t.id, "test", t.type, "ERROR", null, 0, e.message); log(`  ERROR ${t.id}: ${e.message}`); } };
+
+    const flush = async () => { for (const t of [...pending]) if (t.deps.every(d => done.has(d) || NODES[d].type === "source")) { pending.splice(pending.indexOf(t), 1); await doTest(t); } };
+
+    let i = 0; for (const n of queue) { i++; const nd = NODES[n], t1 = performance.now();
+
+      if (nd.deps.some(d => bad.has(d))) { bad.add(n); ST[n] = "skip"; res(n, nd.type, nd.mat, "SKIP", null, 0, "dependensi gagal"); log(`${i} of ${queue.length} SKIP ${n}`); drawDag(); continue; }
+
+      ST[n] = "run"; drawDag(); log(`${i} of ${queue.length} START ${nd.mat} ${nd.type} ${SCHEMA}${n} ...`);
+
+      try { const o = nd.type === "seed" ? await seed(n) : await build(n), s = ((performance.now() - t1) / 1000).toFixed(1);
+
+        ST[n] = "ok"; res(n, nd.type, nd.mat, "OK", o.rows, s, o.note); log(`${i} of ${queue.length} OK ${n} [${o.note} dalam ${s}s]`); }
+
+      catch (e) { bad.add(n); ST[n] = "err"; res(n, nd.type, nd.mat, "ERROR", null, 0, e.message); log(`${i} of ${queue.length} ERROR ${n}: ${e.message}`); }
+
+      done.add(n); drawDag(); if (cmd === "build") await flush(); }
+
+    if (cmd === "test") { pending.forEach(() => {}); for (const t of pending) await doTest(t); } else await flush();
+
+    log(`Selesai dalam ${((performance.now() - t0) / 1000).toFixed(1)}s. OK=${tally.OK} PASS=${tally.PASS} FAIL=${tally.FAIL} ERROR=${tally.ERROR} SKIP=${tally.SKIP}`);
+
+    await commit([upd(pid(), "_dbt_runs", "run_" + Date.now(), { perintah: cmd, waktu: new Date().toISOString(), lulus: tally.OK + tally.PASS, gagal: tally.FAIL + tally.ERROR, hasil_json: JSON.stringify(RES) })]).catch(() => {});
+
+  } catch (e) { log("ERROR: " + e.message); }
+
+  finally { renderRes(); }
+
+}
+
+async function docs(nodes) {
+
+  const man = nodes.map(n => ({ name: n, type: NODES[n].type, layer: NODES[n].layer, mat: NODES[n].mat, deps: NODES[n].deps, desc: NODES[n].desc, tests: TESTS.filter(t => t.model === n).length }));
+
+  await commit([upd(pid(), "_dbt_manifest", "manifest", { dibuat: new Date().toISOString(), jumlah_node: man.length, nodes_json: JSON.stringify(man) })]);
+
+  man.forEach(m => RES.push({ n: m.name, type: m.type, mat: m.mat, status: "DOC", rows: m.tests, sec: "", note: `hulu: ${m.deps.join(", ") || "-"} | ${m.desc}` }));
+
+  log(`docs generate: manifest ${man.length} node disimpan di koleksi _dbt_manifest. Lineage DAG tampil di atas.`); }
+
+
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+function log(m) { const b = $("log"); b.textContent += `\n[${new Date().toLocaleTimeString()}] ${m}`; b.scrollTop = b.scrollHeight; }
+
+function renderRes() { $("res").innerHTML = RES.length ? `<table><tr><th>Node / Test</th><th>Tipe</th><th>Materialization</th><th>Status</th><th>Baris</th><th>Detik</th><th>Keterangan</th></tr>` +
+
+ RES.map(r => `<tr><td><b>${esc(r.n)}</b></td><td>${r.type}</td><td>${r.mat || ""}</td><td class="${/OK|PASS|DOC/.test(r.status) ? "ok" : r.status === "SKIP" ? "sk" : "er"}">${r.status}</td><td>${r.rows ?? "-"}</td><td>${r.sec}</td><td>${esc(r.note)}</td></tr>`).join("") + "</table>" : ""; }
+
+function drawDag() {
+
+ const W = 200, H = 38, GX = 46, GY = 12, col = {}, pos = {}, fill = { source: "#e2e8f0", seed: "#e2e8f0", staging: "#bee3f8", intermediate: "#c6f6d5", marts: "#feebc8" };
+
+  Object.keys(NODES).forEach(n => { (col[depth[n]] ??= []).push(n); });
+
+  Object.entries(col).forEach(([d, a]) => a.forEach((n, i) => pos[n] = { x: 10 + d * (W + GX), y: 10 + i * (H + GY) }));
+
+  const rows = Math.max(...Object.values(col).map(a => a.length)), w = 20 + Object.keys(col).length * (W + GX), h = 20 + rows * (H + GY);
+
+  const stroke = { run: "#dd6b20", ok: "#38a169", err: "#e53e3e", skip: "#d69e2e", sel: "#805ad5" };
+
+  let s = `<svg width="${w}" height="${h}" xmlns="http://www.w3.org/2000/svg">`;
+
+  for (const n in NODES) NODES[n].deps.forEach(d => { const a = pos[d], b = pos[n]; s += `<path d="M${a.x + W} ${a.y + H / 2} C${a.x + W + 25} ${a.y + H / 2},${b.x - 25} ${b.y + H / 2},${b.x} ${b.y + H / 2}" fill="none" stroke="#a0aec0"/>`; });
+
+  for (const n in NODES) { const p = pos[n], st = ST[n];
+
+    s += `<rect x="${p.x}" y="${p.y}" width="${W}" height="${H}" rx="6" fill="${fill[NODES[n].layer]}" stroke="${stroke[st] || "#718096"}" stroke-width="${st ? 3 : 1}"/>` +
+
+      `<text x="${p.x + 8}" y="${p.y + 16}" font-size="12" font-weight="bold" fill="#1a202c">${esc(n)}</text><text x="${p.x + 8}" y="${p.y + 31}" font-size="10" fill="#4a5568">${NODES[n].mat || NODES[n].type}</text>`; }
+
+  $("dag").innerHTML = s + "</svg>";
+
+}
+
+async function showNode() {
+
+  try {
+
+    fresh();
+
+    const r = (await rel($("shw").value)).slice(0, 10);
+
+    if (!r.length) {
+
+      $("shwOut").innerHTML = "<i>Kosong</i>";
+
+      return;
+
+    }
+
+    const keys = Object.keys(r[0]);
+
+    $("shwOut").innerHTML =
+
+      "<table><tr>" +
+
+      keys.map(k => `<th>${esc(k)}</th>`).join("") +
+
+      "</tr>" +
+
+      r.map(x =>
+
+        "<tr>" +
+
+        keys.map(k => `<td>${esc(x[k] ?? "")}</td>`).join("") +
+
+        "</tr>"
+
+      ).join("") +
+
+      "</table>";
+
+  } catch (e) {
+
+    $("shwOut").innerHTML =
+
+      `<b class="er">${esc(e.message)}</b>`;
+
+  }
+
+}
+
+$("shw").innerHTML =
+
+  Object.keys(NODES).map(n => `<option>${n}</option>`).join("");
+
+drawDag();
+
+</script></body></html>
